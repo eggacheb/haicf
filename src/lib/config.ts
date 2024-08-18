@@ -9,20 +9,30 @@ class Config {
     system = systemConfig;
 
     /** API密钥 */
-    apiKey = typeof API_KEY !== 'undefined' ? API_KEY : 'sk-hailuofreeapi';
+    apiKey: string;
 
     /** token刷新间隔（毫秒） */
-    tokenRefreshInterval = typeof TOKEN_REFRESH_INTERVAL !== 'undefined' ? 
-        parseInt(TOKEN_REFRESH_INTERVAL as string) : 604800000; // 默认7天
+    tokenRefreshInterval: number;
 
     /** 调试模式 */
-    debug = typeof DEBUG !== 'undefined' ? DEBUG === 'true' : false;
+    debug: boolean;
 
     /** 日志级别 */
-    logLevel = typeof LOG_LEVEL !== 'undefined' ? LOG_LEVEL : 'info';
+    logLevel: string;
 
     constructor() {
-        // 可以在这里添加一些配置验证逻辑
+        this.apiKey = 'sk-hailuofreeapi';
+        this.tokenRefreshInterval = 604800000; // 默认7天
+        this.debug = false;
+        this.logLevel = 'info';
+    }
+
+    initialize(env: any) {
+        this.apiKey = env.API_KEY || this.apiKey;
+        this.tokenRefreshInterval = parseInt(env.TOKEN_REFRESH_INTERVAL || '') || this.tokenRefreshInterval;
+        this.debug = env.DEBUG === 'true';
+        this.logLevel = env.LOG_LEVEL || this.logLevel;
+
         if (this.apiKey === 'sk-hailuofreeapi') {
             console.warn("Warning: Using default API key. Please set a custom API key in environment variables.");
         }
