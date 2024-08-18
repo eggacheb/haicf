@@ -18,15 +18,6 @@ const startupTime = performance.now();
   logger.info("Environment:", environment.env);
   logger.info("Service name:", config.service.name);
 
-  // 初始化TokenManager并立即执行一次刷新
-  await tokenManager.initialize(); // 先初始化
-  await tokenManager.refreshTokens();
-
-  // 设置定期清理session的任务
-  setInterval(async () => {
-    await sessionManager.cleanupSessions();
-  }, 5 * 60 * 1000); // 每5分钟清理一次
-
   await server.attachRoutes(routes);
   await server.listen();
 
