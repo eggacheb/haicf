@@ -1,0 +1,9 @@
+name = "hailuo-free-api"
+main = "dist/index.js"
+compatibility_date = "2023-05-18"
+
+[build]
+command = "npm run build"
+
+[site]
+bucket = "./public"
