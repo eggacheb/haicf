@@ -15,12 +15,6 @@ class Config {
     tokenRefreshInterval = typeof TOKEN_REFRESH_INTERVAL !== 'undefined' ? 
         parseInt(TOKEN_REFRESH_INTERVAL as string) : 604800000; // 默认7天
 
-    /** 服务端口 */
-    port = typeof PORT !== 'undefined' ? parseInt(PORT as string) : 8000;
-
-    /** 服务主机 */
-    host = typeof HOST !== 'undefined' ? HOST : '0.0.0.0';
-
     /** 调试模式 */
     debug = typeof DEBUG !== 'undefined' ? DEBUG === 'true' : false;
 
