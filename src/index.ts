@@ -19,22 +19,24 @@ const startupTime = performance.now();
   logger.info("Service name:", config.service.name);
 
   // 初始化TokenManager并立即执行一次刷新
+  await tokenManager.initialize(); // 先初始化
   await tokenManager.refreshTokens();
 
   // 设置定期清理session的任务
-  setInterval(() => {
-    sessionManager.cleanupSessions();
+  setInterval(async () => {
+    await sessionManager.cleanupSessions();
   }, 5 * 60 * 1000); // 每5分钟清理一次
 
-  server.attachRoutes(routes);
+  await server.attachRoutes(routes);
   await server.listen();
 
-  config.service.bindAddress &&
+  if (config.service.bindAddress) {
     logger.success("Service bind address:", config.service.bindAddress);
+  }
 })()
   .then(() =>
     logger.success(
       `Service startup completed (${Math.floor(performance.now() - startupTime)}ms)`
     )
   )
-  .catch((err) => console.error(err));
+  .catch((err) => logger.error(err));
