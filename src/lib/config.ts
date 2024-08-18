@@ -29,7 +29,7 @@ class Config {
 
     constructor() {
         // 可以在这里添加一些配置验证逻辑
-        if (this.apiKey === 'default_api_key') {
+        if (this.apiKey === 'sk-hailuofreeapi') {
             console.warn("Warning: Using default API key. Please set a custom API key in environment variables.");
         }
 
