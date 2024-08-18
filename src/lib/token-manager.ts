@@ -2,7 +2,6 @@ import redis from './redis-client';
 import logger from './logger';
 import sessionManager from './session-manager';
 import { refreshToken } from '../api/controllers/token-utils';
-import config from './config';
 
 const TOKENS_KEY = 'hailuofree:tokens';
 
@@ -20,7 +19,7 @@ class TokenManager {
   private initialized: boolean = false;
 
   constructor() {
-    logger.info('TokenManager: Initializing...');
+    logger.info('TokenManager: Instance created');
   }
 
   async initialize(env: any) {
@@ -35,21 +34,21 @@ class TokenManager {
 
   private async loadTokens(env: any): Promise<void> {
     try {
-      this.cachedTokens = await redis.smembers(TOKENS_KEY, env);
+      this.cachedTokens = await redis.smembers(TOKENS_KEY);
       if (this.cachedTokens.length === 0) {
-        throw new Error('No tokens found in KV store');
+        throw new Error('No tokens found in Redis');
       }
       logger.info(`TokenManager: Tokens loaded successfully. Total tokens: ${this.cachedTokens.length}`);
     } catch (error) {
-      logger.error(`TokenManager: Failed to load tokens from KV store: ${error.message}`);
+      logger.error(`TokenManager: Failed to load tokens from Redis: ${error.message}`);
     }
   }
 
   private async saveTokens(tokens: string[], env: any): Promise<boolean> {
     try {
-      await redis.del(TOKENS_KEY, env);
+      await redis.del(TOKENS_KEY);
       if (tokens.length > 0) {
-        await redis.sadd(TOKENS_KEY, env, ...tokens);
+        await redis.sadd(TOKENS_KEY, ...tokens);
       }
       this.cachedTokens = tokens;
       logger.info(`TokenManager: Tokens saved successfully. Total tokens: ${tokens.length}`);
@@ -69,7 +68,7 @@ class TokenManager {
   }
 
   getNextRefreshTime(): number {
-    return this.lastRefreshTime + config.tokenRefreshInterval;
+    return this.lastRefreshTime + parseInt(process.env.TOKEN_REFRESH_INTERVAL || '604800000');
   }
 
   async refreshTokens(env: any) {
