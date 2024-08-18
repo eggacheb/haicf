@@ -2,6 +2,7 @@ import redis from './redis-client';
 import logger from './logger';
 import sessionManager from './session-manager';
 import { refreshToken } from '../api/controllers/token-utils';
+import config from './config';
 
 const TOKENS_KEY = 'hailuofree:tokens';
 
@@ -13,40 +14,42 @@ interface RefreshStatus {
 
 class TokenManager {
   private lastRefreshStatus: RefreshStatus | null = null;
-  private refreshInterval: NodeJS.Timeout | null = null;
   private lastRefreshTime: number = Date.now();
   private cachedTokens: string[] = [];
   private currentTokenIndex: number = 0;
+  private initialized: boolean = false;
 
   constructor() {
     logger.info('TokenManager: Initializing...');
-    this.initialize();
   }
 
-  private async initialize() {
+  async initialize(env: any) {
+    if (this.initialized) {
+      return;
+    }
     logger.info('TokenManager: Starting initialization...');
-    await this.loadTokens();
-    this.scheduleRefresh();
+    await this.loadTokens(env);
+    this.initialized = true;
     logger.info('TokenManager: Initialization completed');
   }
 
-  private async loadTokens(): Promise<void> {
+  private async loadTokens(env: any): Promise<void> {
     try {
-      this.cachedTokens = await redis.smembers(TOKENS_KEY);
+      this.cachedTokens = await redis.smembers(TOKENS_KEY, env);
       if (this.cachedTokens.length === 0) {
-        throw new Error('No tokens found in Redis');
+        throw new Error('No tokens found in KV store');
       }
       logger.info(`TokenManager: Tokens loaded successfully. Total tokens: ${this.cachedTokens.length}`);
     } catch (error) {
-      logger.error(`TokenManager: Failed to load tokens from Redis: ${error.message}`);
+      logger.error(`TokenManager: Failed to load tokens from KV store: ${error.message}`);
     }
   }
 
-  private async saveTokens(tokens: string[]): Promise<boolean> {
+  private async saveTokens(tokens: string[], env: any): Promise<boolean> {
     try {
-      await redis.del(TOKENS_KEY);
+      await redis.del(TOKENS_KEY, env);
       if (tokens.length > 0) {
-        await redis.sadd(TOKENS_KEY, ...tokens);
+        await redis.sadd(TOKENS_KEY, env, ...tokens);
       }
       this.cachedTokens = tokens;
       logger.info(`TokenManager: Tokens saved successfully. Total tokens: ${tokens.length}`);
@@ -66,10 +69,10 @@ class TokenManager {
   }
 
   getNextRefreshTime(): number {
-    return this.lastRefreshTime + parseInt(process.env.TOKEN_REFRESH_INTERVAL || '604800000');
+    return this.lastRefreshTime + config.tokenRefreshInterval;
   }
 
-  async refreshTokens() {
+  async refreshTokens(env: any) {
     if (this.cachedTokens.length === 0) {
       logger.warn('TokenManager: No tokens available for refresh');
       return;
@@ -100,8 +103,8 @@ class TokenManager {
       }
     }
 
-    if (await this.saveTokens(newTokens)) {
-      await sessionManager.updateSessionTokens();
+    if (await this.saveTokens(newTokens, env)) {
+      await sessionManager.updateSessionTokens(env);
     }
 
     this.lastRefreshStatus = {
@@ -115,27 +118,27 @@ class TokenManager {
     logger.info(`TokenManager: Token refresh completed. Success: ${successCount}, Failed: ${failCount}, Total tokens: ${newTokens.length}`);
   }
 
-  async addToken(newToken: string) {
+  async addToken(newToken: string, env: any) {
     if (!this.cachedTokens.includes(newToken)) {
       this.cachedTokens.push(newToken);
-      await this.saveTokens(this.cachedTokens);
-      await sessionManager.updateSessionTokens();
+      await this.saveTokens(this.cachedTokens, env);
+      await sessionManager.updateSessionTokens(env);
       logger.info(`New token added and tokens reloaded`);
     } else {
       logger.warn(`Token already exists, not adding duplicate`);
     }
   }
 
-  async updateToken(oldToken: string, newToken: string) {
+  async updateToken(oldToken: string, newToken: string, env: any) {
     const index = this.cachedTokens.indexOf(oldToken);
     if (index !== -1) {
       this.cachedTokens[index] = newToken;
-      await this.saveTokens(this.cachedTokens);
-      await sessionManager.updateSessionTokens();
+      await this.saveTokens(this.cachedTokens, env);
+      await sessionManager.updateSessionTokens(env);
       logger.info(`Token updated successfully`);
     } else {
       logger.warn(`Old token not found, adding new token instead`);
-      await this.addToken(newToken);
+      await this.addToken(newToken, env);
     }
   }
 
@@ -151,17 +154,6 @@ class TokenManager {
 
   getTokenCount(): number {
     return this.cachedTokens.length;
-  }
-
-  private scheduleRefresh() {
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-    }
-    const intervalInSeconds = parseInt(process.env.TOKEN_REFRESH_INTERVAL || '604800000') / 1000;
-    this.refreshInterval = setInterval(() => {
-      this.refreshTokens();
-    }, intervalInSeconds * 1000);
-    logger.info(`TokenManager: Token refresh scheduled every ${intervalInSeconds} seconds`);
   }
 }
 
